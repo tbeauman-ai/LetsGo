@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Créer un compte</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+</head>
+<body>
+  <div id="menu">
+    <h1>Créer un compte</h1>
+    <p id="erreur" style="color:red;"></p>
+    <p id="succes" style="color:green;"></p>
+
+    <input type="text" id="username" placeholder="Nom d'utilisateur" /><br>
+
+    <!-- Champ mot de passe avec œil -->
+    <div style="position:relative; display:inline-block;">
+      <input type="password" id="password" placeholder="Mot de passe" />
+      <span onclick="toggleVisi('password', this)"
+            style="position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer;">
+        👁
+      </span>
+    </div><br>
+
+    <!-- Champ confirmation avec œil -->
+    <div style="position:relative; display:inline-block;">
+      <input type="password" id="confirm" placeholder="Confirmer le mot de passe" />
+      <span onclick="toggleVisi('confirm', this)"
+            style="position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer;">
+        👁
+      </span>
+    </div><br>
+
+    <!-- Indicateur de force -->
+    <div id="force-mdp" style="font-size:13px; margin: 4px 0 8px;"></div>
+
+    <div class="h-captcha" data-sitekey="494824fe-3f96-4ac2-a836-e966ffe4e4e8"></div><br>
+
+    <button onclick="creerCompte()">Créer mon compte</button>
+    <a href="/">Retour</a>
+  </div>
+
+  <script>
+    // ── Afficher / cacher le mot de passe ──────────────────────
+    function toggleVisi(inputId, span) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        span.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        span.textContent = '👁';
+      }
+    }
+
+    // ── Validation du mot de passe ─────────────────────────────
+    const regles = {
+      longueur  : { test: v => v.length >= 6,          label: '6 caractères minimum' },
+      majuscule : { test: v => /[A-Z]/.test(v),        label: 'Une majuscule'         },
+      chiffre   : { test: v => /[0-9]/.test(v),        label: 'Un chiffre'            },
+      special   : { test: v => /[^A-Za-z0-9]/.test(v), label: 'Un caractère spécial'  },
+    };
+
+    function validerMotDePasse(mdp) {
+      return Object.entries(regles).filter(([, r]) => !r.test(mdp)).map(([, r]) => r.label);
+    }
+
+    // Indicateur en temps réel
+    document.getElementById('password').addEventListener('input', function () {
+      const erreurs = validerMotDePasse(this.value);
+      const div     = document.getElementById('force-mdp');
+      if (this.value === '') { div.textContent = ''; return; }
+      if (erreurs.length === 0) {
+        div.style.color   = 'green';
+        div.textContent   = '✅ Mot de passe valide';
+      } else {
+        div.style.color   = 'red';
+        div.textContent   = '❌ Manque : ' + erreurs.join(', ');
+      }
+    });
+
+    // ── Soumission ─────────────────────────────────────────────
+    async function creerCompte() {
+      const username  = document.getElementById('username').value.trim();
+      const password  = document.getElementById('password').value;
+      const confirm   = document.getElementById('confirm').value;
+      const erreurEl  = document.getElementById('erreur');
+      erreurEl.textContent = '';
+
+      // Validation pseudo
+      if (username.length < 3) {
+        erreurEl.textContent = 'Pseudo trop court (3 caractères min).';
+        return;
+      }
+
+      // Validation mot de passe
+      const erreurs = validerMotDePasse(password);
+      if (erreurs.length > 0) {
+        erreurEl.textContent = 'Mot de passe invalide — manque : ' + erreurs.join(', ');
+        return;
+      }
+
+      // Confirmation
+      if (password !== confirm) {
+        erreurEl.textContent = 'Les mots de passe ne correspondent pas.';
+        return;
+      }
+
+      // Captcha
+      const captchaToken = hcaptcha.getResponse();
+      if (!captchaToken) {
+        erreurEl.textContent = 'Merci de compléter le captcha.';
+        return;
+      }
+
+      const res  = await fetch('/api/register', {
+        method  : 'POST',
+        headers : { 'Content-Type': 'application/json' },
+        body    : JSON.stringify({ username, password, captchaToken })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('succes').textContent = 'Compte créé ! Redirection...';
+        setTimeout(() => window.location.href = '/login', 1500);
+      } else {
+        erreurEl.textContent = data.message;
+        hcaptcha.reset();
+      }
+    }
+  </script>
+</body>
+</html>

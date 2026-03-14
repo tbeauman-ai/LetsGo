@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Jeu de Go</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Bienvenue au jeu de Go</h1>
+    <div id="board"></div>
+    <canvas id="goCanvas"></canvas>
+    <script src="/gotable.js"></script>
+    <script>
+    const go = new GoTable('goCanvas');
+
+    // Récupérer l'état à chaque coup
+    go.onChange = ({ currentPlayer, captures }) => {
+        document.getElementById('turn').textContent = currentPlayer === 1 ? 'Noir' : 'Blanc';
+        document.getElementById('capturesNoir').textContent = captures[0];
+        document.getElementById('capturesBlanc').textContent = captures[1];
+    };
+
+    // Boutons
+    document.getElementById('btnReset').onclick = () => go.reset();
+    document.getElementById('btnPass').onclick  = () => go.pass();
+    </script>
+
+</body>
+</html>

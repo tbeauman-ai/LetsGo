@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="menu">
+    <h1>Se connecter</h1>
+    <p id="erreur" style="color:red;"></p>
+
+    <input type="text"     id="username" placeholder="Nom d'utilisateur" /><br>
+    <input type="password" id="password" placeholder="Mot de passe" /><br>
+    <button onclick="seConnecter()">Se connecter</button>
+    <a href="/">Retour</a>
+
+    <script>
+      async function seConnecter() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        const res  = await fetch('/api/login', {
+          method  : 'POST',
+          headers : { 'Content-Type': 'application/json' },
+          body    : JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('user', data.username);
+          window.location.href = '/';
+        } else {
+          document.getElementById('erreur').textContent = data.message;
+        }
+      }
+    </script>
+  </div>
+</body>
+</html>

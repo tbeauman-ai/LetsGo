@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Jeu de Go</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="menu">
+    <h1>🎮 Jeu de Go</h1>
+
+    <!-- Affiché si l'utilisateur N'est PAS connecté -->
+    <div id="menu-invite">
+      <a href="/login"><button>Se connecter</button></a>
+      <a href="/register"><button>Créer un compte</button></a>
+      <a href="/game"><button>Jouer en invité</button></a>
+    </div>
+
+    <!-- Affiché si l'utilisateur EST connecté -->
+    <div id="menu-connecte" style="display:none;">
+      <p>Bonjour, <strong id="username"></strong> !</p>
+      <a href="/game"><button>Trouver une partie rapide</button></a>
+      <button>Jouer avec un ami</button>
+      <button onclick="seDeconnecter()">Se déconnecter</button>
+    </div>
+  </div>
+
+  <script>
+    // On vérifie si l'utilisateur est connecté via localStorage
+    const user = localStorage.getItem('user');
+
+    if (user) {
+      document.getElementById('menu-invite').style.display = 'none';
+      document.getElementById('menu-connecte').style.display = 'block';
+      document.getElementById('username').textContent = user;
+    }
+
+    function seDeconnecter() {
+      localStorage.removeItem('user');
+      location.reload();
+    }
+  </script>
+</body>
+</html>
