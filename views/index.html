@@ -7,38 +7,87 @@
 </head>
 <body>
   <div id="menu">
-    <h1>🎮 Jeu de Go</h1>
+    <h1>Jeu de Go</h1>
 
-    <!-- Affiché si l'utilisateur N'est PAS connecté -->
+    <!-- Non connecté -->
     <div id="menu-invite">
       <a href="/login"><button>Se connecter</button></a>
       <a href="/register"><button>Créer un compte</button></a>
       <a href="/game"><button>Jouer en invité</button></a>
     </div>
 
-    <!-- Affiché si l'utilisateur EST connecté -->
+    <!-- Connecté -->
     <div id="menu-connecte" style="display:none;">
       <p>Bonjour, <strong id="username"></strong> !</p>
       <a href="/game"><button>Trouver une partie rapide</button></a>
-      <button>Jouer avec un ami</button>
+      <button onclick="jouerAvecAmi()">Jouer avec un ami</button>
+      <button onclick="rejoindrAmi()">Rejoindre un ami</button>
       <button onclick="seDeconnecter()">Se déconnecter</button>
+
+      <!-- Popup création de partie -->
+      <div id="popup-creer" style="display:none; margin-top:16px;">
+        <p>Ton code de partie :</p>
+        <h2 id="code-partie" style="letter-spacing:8px;"></h2>
+        <p style="font-size:13px; color:gray;">Partage ce code à ton ami !</p>
+        <p id="statut-attente">⏳ En attente de l'adversaire...</p>
+      </div>
+
+      <!-- Popup rejoindre une partie -->
+      <div id="popup-rejoindre" style="display:none; margin-top:16px;">
+        <input type="text" id="input-code" placeholder="Entre le code (ex: AB12CD)" maxlength="6" />
+        <button onclick="confirmerRejoindre()">Rejoindre</button>
+        <p id="erreur-rejoindre" style="color:red;"></p>
+      </div>
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    // On vérifie si l'utilisateur est connecté via localStorage
-    const user = localStorage.getItem('user');
+    const user   = localStorage.getItem('user');
+    const socket = io();
 
     if (user) {
-      document.getElementById('menu-invite').style.display = 'none';
+      document.getElementById('menu-invite').style.display   = 'none';
       document.getElementById('menu-connecte').style.display = 'block';
-      document.getElementById('username').textContent = user;
+      document.getElementById('username').textContent        = user;
     }
 
     function seDeconnecter() {
       localStorage.removeItem('user');
       location.reload();
     }
+
+    function jouerAvecAmi() {
+      document.getElementById('popup-creer').style.display    = 'block';
+      document.getElementById('popup-rejoindre').style.display = 'none';
+      socket.emit('creer-partie', user);
+    }
+
+    function rejoindrAmi() {
+      document.getElementById('popup-rejoindre').style.display = 'block';
+      document.getElementById('popup-creer').style.display     = 'none';
+    }
+
+    function confirmerRejoindre() {
+      const code = document.getElementById('input-code').value.trim().toUpperCase();
+      if (code.length !== 6) {
+        document.getElementById('erreur-rejoindre').textContent = 'Le code doit faire 6 caractères.';
+        return;
+      }
+      socket.emit('rejoindre-partie', { code, username: user });
+    }
+
+    socket.on('partie-creee', ({ code }) => {
+      document.getElementById('code-partie').textContent = code;
+    });
+
+    socket.on('erreur-rejoindre', (msg) => {
+      document.getElementById('erreur-rejoindre').textContent = msg;
+    });
+
+    socket.on('partie-commence', ({ joueur1, joueur2, code }) => {
+      window.location.href = `/game?code=${code}&joueur1=${joueur1}&joueur2=${joueur2}`;
+    });
   </script>
 </body>
 </html>

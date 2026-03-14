@@ -1,29 +1,127 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Jeu de Go</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <title>Jeu de Go</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <h1>Bienvenue au jeu de Go</h1>
-    <div id="board"></div>
-    <canvas id="goCanvas"></canvas>
-    <script src="/gotable.js"></script>
-    <script>
+  <h1>Jeu de Go</h1>
+
+  <p>Tour : <strong id="turn">Noir</strong></p>
+  <p>Captures Noir : <span id="capturesNoir">0</span></p>
+  <p>Captures Blanc : <span id="capturesBlanc">0</span></p>
+  <p id="statut"></p>
+
+  <button id="btnPass">Passer</button>
+
+  <canvas id="goCanvas"></canvas>
+
+  <script src="/gotable.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const params  = new URLSearchParams(window.location.search);
+    const code    = params.get('code');
+    const joueur1 = params.get('joueur1');
+    const joueur2 = params.get('joueur2');
+    const user    = localStorage.getItem('user');
+    const socket  = io();
+
     const go = new GoTable('goCanvas');
 
-    // Récupérer l'état à chaque coup
-    go.onChange = ({ currentPlayer, captures }) => {
-        document.getElementById('turn').textContent = currentPlayer === 1 ? 'Noir' : 'Blanc';
-        document.getElementById('capturesNoir').textContent = captures[0];
-        document.getElementById('capturesBlanc').textContent = captures[1];
+    // Met à jour l'affichage à partir de l'état reçu
+    function afficherEtat({ currentPlayer, captures }) {
+      const nom = currentPlayer === 1 ? (joueur1 || 'Noir') : (joueur2 || 'Blanc');
+      document.getElementById('turn').textContent          = nom;
+      document.getElementById('capturesNoir').textContent  = captures[0];
+      document.getElementById('capturesBlanc').textContent = captures[1];
+    }
+
+    // Détermine si c'est notre tour
+    function monTour(currentPlayer) {
+      if (!code) return true; // mode solo : toujours notre tour
+      return (currentPlayer === 1 && user === joueur1) ||
+             (currentPlayer === 2 && user === joueur2);
+    }
+
+    // Clic sur le plateau — envoie le coup au serveur
+    go.canvas.addEventListener('click', (e) => {
+      if (!monTour(go.currentPlayer)) {
+        document.getElementById('statut').textContent = "Ce n'est pas ton tour !";
+        return;
+      }
+
+      const cell = go.getCellFromEvent(e);
+      if (!cell) return;
+
+      if (code) {
+        // Mode multijoueur — le serveur valide et broadcast
+        socket.emit('jouer-coup', { code, row: cell.row, col: cell.col });
+      } else {
+        // Mode solo — on joue directement via GoLogic côté client
+        // (GoLogic doit être chargé aussi en mode solo)
+        const result = logic.play(cell.row, cell.col);
+        if (result.ok) {
+          go.loadState(result.state);
+          afficherEtat(result.state);
+        }
+      }
+    });
+
+    // ── Événements socket ────────────────────────────────────
+
+    // Le serveur confirme un coup valide et envoie le nouvel état
+    socket.on('etat-mise-a-jour', (state) => {
+      go.loadState(state);
+      afficherEtat(state);
+      document.getElementById('statut').textContent =
+        monTour(state.currentPlayer) ? 'À ton tour !' : "En attente de l'adversaire...";
+    });
+
+    // Erreur de coup (case occupée, ko, suicide...)
+    socket.on('coup-invalide', ({ reason }) => {
+      document.getElementById('statut').textContent = `Coup invalide : ${reason}`;
+    });
+
+    // Reçoit l'état complet au chargement ou rechargement
+    socket.on('etat-partie', (state) => {
+      go.loadState(state);
+      afficherEtat(state);
+      document.getElementById('statut').textContent =
+        monTour(state.currentPlayer) ? 'À ton tour !' : "En attente de l'adversaire...";
+    });
+
+    socket.on('adversaire-passe', () => {
+      document.getElementById('statut').textContent = "L'adversaire a passé — à ton tour !";
+    });
+
+    socket.on('partie-terminee', () => {
+      alert('Les deux joueurs ont passé — la partie est terminée !');
+      window.location.href = '/';
+    });
+
+    socket.on('adversaire-deconnecte', () => {
+      alert("Ton adversaire s'est déconnecté.");
+      window.location.href = '/';
+    });
+
+    // Demande l'état actuel dès la connexion (utile au rechargement)
+    if (code) {
+      socket.emit('demander-etat', { code });
+      document.getElementById('statut').textContent = "En attente de l'adversaire...";
+      socket.emit('demander-etat', { code, username: user });
+    }
+
+    if (joueur1 && joueur2) {
+      document.getElementById('turn').textContent = joueur1;
+    }
+
+    // Bouton passer
+    document.getElementById('btnPass').onclick = () => {
+      if (code) {
+        socket.emit('passer', { code });
+      }
     };
-
-    // Boutons
-    document.getElementById('btnReset').onclick = () => go.reset();
-    document.getElementById('btnPass').onclick  = () => go.pass();
-    </script>
-
+  </script>
 </body>
 </html>

@@ -1,0 +1,5 @@
+#goCanvas {
+  display: block;
+  margin: 0 auto;
+  touch-action: none; /* important pour mobile */
+}
